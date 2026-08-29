@@ -3,6 +3,7 @@ import { supabase } from '../config/supabase.js'
 import { AppError, asyncHandler, unwrap } from '../lib/errors.js'
 import {
   hashPassword,
+  isAuthConfigured,
   signToken,
   verifyGoogleIdToken,
   verifyPassword,
@@ -21,6 +22,24 @@ import {
 const router = Router()
 
 router.use(requireSupabase)
+
+/**
+ * Fail before writing anything: without a signing key we could otherwise
+ * create an account and then be unable to hand back a session.
+ */
+router.use((_req, _res, next) => {
+  if (!isAuthConfigured) {
+    return next(
+      new AppError(
+        503,
+        'Sign-in is not configured on the server yet. Set JWT_SECRET and redeploy.',
+        'JWT_NOT_CONFIGURED'
+      )
+    )
+  }
+
+  next()
+})
 
 async function findProfileByEmail(email) {
   const { data, error } = await supabase
