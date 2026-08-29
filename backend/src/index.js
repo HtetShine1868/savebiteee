@@ -2,6 +2,14 @@ import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
 import healthRouter from './routes/health.js'
+import authRouter from './routes/auth.js'
+import categoriesRouter from './routes/categories.js'
+import shopsRouter from './routes/shops.js'
+import promotionsRouter from './routes/promotions.js'
+import reservationsRouter from './routes/reservations.js'
+import ownerRouter from './routes/owner.js'
+import chatRouter from './routes/chat.js'
+import favoritesRouter from './routes/favorites.js'
 
 const app = express()
 const port = Number(process.env.PORT) || 5000
@@ -16,6 +24,14 @@ app.use(
 app.use(express.json())
 
 app.use('/api/health', healthRouter)
+app.use('/api/auth', authRouter)
+app.use('/api/categories', categoriesRouter)
+app.use('/api/shops', shopsRouter)
+app.use('/api/promotions', promotionsRouter)
+app.use('/api/reservations', reservationsRouter)
+app.use('/api/owner', ownerRouter)
+app.use('/api/chat', chatRouter)
+app.use('/api/favorites', favoritesRouter)
 
 app.use((req, res) => {
   res.status(404).json({
@@ -25,9 +41,16 @@ app.use((req, res) => {
 })
 
 app.use((err, _req, res, _next) => {
-  console.error(err)
-  res.status(err.status || 500).json({
+  const status = err.status || 500
+
+  if (status >= 500) {
+    console.error(err)
+  }
+
+  res.status(status).json({
     error: err.message || 'Internal server error',
+    code: err.code || 'ERROR',
+    details: err.details,
   })
 })
 
