@@ -65,7 +65,7 @@ export default function Favorites() {
                 <div className="min-w-0 flex-1">
                   <h2 className="truncate font-display text-base font-bold text-ink">
                     {shop.slug ? (
-                      <Link to={`/app/shops/${shop.slug}`} className="hover:text-brand-700">
+                      <Link to={`/app/shops/${shop.id}`} className="hover:text-brand-700">
                         {shop.name || 'Saved shop'}
                       </Link>
                     ) : (

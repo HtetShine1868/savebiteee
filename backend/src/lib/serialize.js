@@ -7,8 +7,10 @@ export function serializeProfile(profile) {
 
   return {
     id: profile.id,
+    email: profile.email,
     role: profile.role,
     fullName: profile.full_name,
+    avatarUrl: profile.avatar_url,
     city: profile.city,
     latitude: profile.latitude,
     longitude: profile.longitude,
@@ -16,6 +18,18 @@ export function serializeProfile(profile) {
     notifyFavoriteShops: profile.notify_favorite_shops ?? true,
     createdAt: profile.created_at,
     updatedAt: profile.updated_at,
+  }
+}
+
+export function serializeUser(profile, shop) {
+  const base = serializeProfile(profile)
+  if (!base) return null
+
+  return {
+    ...base,
+    shopId: shop?.id ?? null,
+    shopName: shop?.name ?? null,
+    shopSlug: shop?.slug ?? null,
   }
 }
 

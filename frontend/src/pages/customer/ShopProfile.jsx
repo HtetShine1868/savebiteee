@@ -21,14 +21,14 @@ import {
 import { formatDistance, initials } from '../../lib/format.js'
 
 export default function ShopProfile() {
-  const { slug } = useParams()
+  const { id } = useParams()
   const now = useNow(30_000)
   const { openReserve, reservationVersion } = useReserve()
   const { location } = useSession()
 
   const { data, loading, error, reload } = useResource(
-    (signal) => shopService.getBySlug(slug, signal),
-    [slug, reservationVersion]
+    (signal) => shopService.get(id, signal),
+    [id, reservationVersion]
   )
 
   const shop = data?.shop ?? null

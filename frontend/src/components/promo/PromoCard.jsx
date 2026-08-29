@@ -101,7 +101,7 @@ export function PromoCard({ promotion, now, onReserve, index = 0 }) {
 
         {promotion.shop ? (
           <Link
-            to={`/app/shops/${promotion.shop.slug}`}
+            to={`/app/shops/${promotion.shop.id}`}
             className="flex min-w-0 items-center gap-1.5 text-sm text-muted hover:text-ink"
           >
             <Store className="size-3.5 shrink-0" aria-hidden="true" />

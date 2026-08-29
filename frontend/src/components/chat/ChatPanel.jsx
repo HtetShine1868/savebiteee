@@ -93,7 +93,7 @@ export function ChatPanel({
       const reply = await chatService.send({
         message,
         history,
-        userLocation: location ? { latitude: location.latitude, longitude: location.longitude } : null,
+        location: location ? { latitude: location.latitude, longitude: location.longitude } : null,
       })
       setMessages((current) => [
         ...current,

@@ -165,7 +165,7 @@ export default function PromotionDetail() {
 
           {promotion.shop ? (
             <Link
-              to={`/app/shops/${promotion.shop.slug}`}
+              to={`/app/shops/${promotion.shop.id}`}
               className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-muted transition hover:text-ink"
             >
               <Store className="size-4" aria-hidden="true" />

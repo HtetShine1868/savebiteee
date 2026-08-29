@@ -52,7 +52,7 @@ export default function Register() {
         fullName: form.fullName,
         email: form.email,
         password: form.password,
-        city: form.city || null,
+        city: form.city.trim() || undefined,
         shopName: role === 'owner' ? form.shopName : undefined,
       })
       notify({

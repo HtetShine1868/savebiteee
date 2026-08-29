@@ -1,0 +1,16 @@
+[build]
+  base = "frontend"
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+  # Deployed Express API on Render. Override in Site settings → Environment
+  # variables if the API moves.
+  VITE_API_URL = "https://savebiteee.onrender.com"
+
+# Single-page app: every route is served by index.html.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

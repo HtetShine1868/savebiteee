@@ -7,16 +7,25 @@ create extension if not exists pgcrypto;
 -- Tables
 -- ---------------------------------------------------------------------------
 
+-- Accounts live here. Supabase is used as the database only: the Express API
+-- owns registration, password hashing and JWT issuing (see src/routes/auth.js).
 create table if not exists public.profiles (
-  id uuid primary key references auth.users (id) on delete cascade,
+  id uuid primary key default gen_random_uuid(),
+  email text not null,
+  password_hash text,
+  auth_provider text not null default 'password',
   role text not null check (role in ('customer', 'owner')),
   full_name text,
+  avatar_url text,
   city text,
   latitude double precision,
   longitude double precision,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+create unique index if not exists profiles_email_key
+  on public.profiles (lower(email));
 
 create table if not exists public.shops (
   id uuid primary key default gen_random_uuid(),
@@ -357,26 +366,10 @@ on public.promotions for select
 to anon, authenticated
 using (true);
 
+-- profiles and reservations stay API-only: no anon/authenticated policy is
+-- created, so nothing but the service role can read them.
 drop policy if exists profiles_self_read on public.profiles;
-create policy profiles_self_read
-on public.profiles for select
-to authenticated
-using (id = auth.uid());
-
 drop policy if exists reservations_self_read on public.reservations;
-create policy reservations_self_read
-on public.reservations for select
-to authenticated
-using (
-  customer_id = auth.uid()
-  or exists (
-    select 1
-    from public.promotions p
-    join public.shops s on s.id = p.shop_id
-    where p.id = reservations.promotion_id
-      and s.owner_id = auth.uid()
-  )
-);
 
 -- ---------------------------------------------------------------------------
 -- Seed categories

@@ -56,7 +56,7 @@ function ReservationCard({ reservation, onCancel, cancelling }) {
             </h3>
             {promotion?.shop ? (
               <Link
-                to={`/app/shops/${promotion.shop.slug}`}
+                to={`/app/shops/${promotion.shop.id}`}
                 className="mt-0.5 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink"
               >
                 <Store className="size-3.5" aria-hidden="true" />

@@ -114,11 +114,19 @@ export function normalizePromotion(raw) {
 export function normalizeReservation(raw) {
   if (!raw) return null
   const promotionSource = raw.promotion ?? raw.promotion_listing ?? null
+  const customer = raw.customer && typeof raw.customer === 'object' ? raw.customer : null
   return {
     id: pick(raw, 'id', 'reservationId', 'reservation_id') ?? null,
     promotionId: pick(raw, 'promotionId', 'promotion_id') ?? promotionSource?.id ?? null,
-    customerId: pick(raw, 'customerId', 'customer_id') ?? null,
-    customerName: pick(raw, 'customerName', 'customer_name', 'fullName', 'full_name') ?? '',
+    customerId: pick(raw, 'customerId', 'customer_id') ?? customer?.id ?? null,
+    customerName:
+      pick(raw, 'customerName', 'customer_name') ??
+      (customer ? pick(customer, 'fullName', 'full_name') : undefined) ??
+      '',
+    customerEmail:
+      pick(raw, 'customerEmail', 'customer_email') ??
+      (customer ? pick(customer, 'email') : undefined) ??
+      '',
     customerPhone: pick(raw, 'customerPhone', 'customer_phone', 'phone') ?? '',
     quantity: num(pick(raw, 'quantity')) ?? 1,
     status: String(pick(raw, 'status') ?? 'reserved').toLowerCase(),
@@ -143,43 +151,54 @@ export function normalizeUser(raw) {
     latitude: num(pick(source, 'latitude')),
     longitude: num(pick(source, 'longitude')),
     shopId: pick(source, 'shopId', 'shop_id') ?? pick(raw, 'shopId', 'shop_id') ?? null,
+    shopName: pick(source, 'shopName', 'shop_name') ?? null,
     shopSlug: pick(source, 'shopSlug', 'shop_slug') ?? null,
   }
 }
 
 /**
- * Write payloads use the column names from backend/supabase/schema.sql so the
- * API can pass them to Supabase with no extra mapping.
+ * Write payloads. The API validates camelCase bodies (see backend
+ * src/validators.js) and maps them to database columns itself.
  */
+const trimmed = (value) => (typeof value === 'string' ? value.trim() : value)
+const textOrNull = (value) => trimmed(value) || null
+const numberOrNull = (value) =>
+  value === '' || value == null || Number.isNaN(Number(value)) ? null : Number(value)
+
 export function serializePromotion(form) {
   return {
-    product_name: form.productName?.trim(),
-    description: form.description?.trim() || null,
-    image_url: form.imageUrl?.trim() || null,
-    category_slug: form.categorySlug || null,
-    original_price: Number(form.originalPrice),
-    promo_price: Number(form.promoPrice),
-    quantity_available: Number(form.quantityAvailable),
-    starts_at: form.startsAt ? new Date(form.startsAt).toISOString() : null,
-    ends_at: form.endsAt ? new Date(form.endsAt).toISOString() : null,
-    food_expires_at: form.foodExpiresAt ? new Date(form.foodExpiresAt).toISOString() : null,
-    pickup_location: form.pickupLocation?.trim() || null,
+    shopId: form.shopId,
+    categoryId: form.categoryId || null,
+    productName: trimmed(form.productName),
+    description: textOrNull(form.description),
+    imageUrl: textOrNull(form.imageUrl),
+    originalPrice: Number(form.originalPrice),
+    promoPrice: Number(form.promoPrice),
+    quantityAvailable: Number(form.quantityAvailable),
+    startsAt: form.startsAt ? new Date(form.startsAt).toISOString() : undefined,
+    endsAt: form.endsAt ? new Date(form.endsAt).toISOString() : undefined,
+    foodExpiresAt: form.foodExpiresAt ? new Date(form.foodExpiresAt).toISOString() : null,
+    pickupLocation: textOrNull(form.pickupLocation),
   }
 }
 
 export function serializeShop(form) {
+  const hours = Object.fromEntries(
+    Object.entries(form.openingHours ?? {}).filter(([, value]) => trimmed(value))
+  )
+
   return {
-    name: form.name?.trim(),
-    description: form.description?.trim() || null,
-    profile_image_url: form.profileImageUrl?.trim() || null,
-    cover_image_url: form.coverImageUrl?.trim() || null,
-    address: form.address?.trim() || null,
-    city: form.city?.trim() || null,
-    latitude: form.latitude === '' || form.latitude == null ? null : Number(form.latitude),
-    longitude: form.longitude === '' || form.longitude == null ? null : Number(form.longitude),
-    contact_phone: form.contactPhone?.trim() || null,
-    contact_email: form.contactEmail?.trim() || null,
+    name: trimmed(form.name),
+    description: textOrNull(form.description),
+    profileImageUrl: textOrNull(form.profileImageUrl),
+    coverImageUrl: textOrNull(form.coverImageUrl),
+    address: textOrNull(form.address),
+    city: textOrNull(form.city),
+    latitude: numberOrNull(form.latitude),
+    longitude: numberOrNull(form.longitude),
+    contactPhone: textOrNull(form.contactPhone),
+    contactEmail: textOrNull(form.contactEmail),
     categories: form.categories ?? [],
-    opening_hours: form.openingHours ?? null,
+    openingHours: Object.keys(hours).length ? hours : null,
   }
 }

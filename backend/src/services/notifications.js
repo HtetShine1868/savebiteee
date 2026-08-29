@@ -121,7 +121,7 @@ export async function notifyFavoriteShopPromotion(listing) {
     await supabase
       .from('shop_favorites')
       .select(
-        'user_id, profile:profiles!shop_favorites_user_id_fkey(email_notifications_enabled, notify_favorite_shops)'
+        'user_id, profile:profiles!shop_favorites_user_id_fkey(email, email_notifications_enabled, notify_favorite_shops)'
       )
       .eq('shop_id', listing.shop_id)
   ) || []
@@ -133,7 +133,7 @@ export async function notifyFavoriteShopPromotion(listing) {
   const summary = { sent: 0, failed: 0, skipped: favorites.length - eligible.length }
 
   await Promise.all(
-    eligible.map(async ({ user_id: userId }) => {
+    eligible.map(async ({ user_id: userId, profile }) => {
       let log
       try {
         log = await reserveNotification(userId, listing.id)
@@ -142,9 +142,7 @@ export async function notifyFavoriteShopPromotion(listing) {
           return
         }
 
-        const { data, error } = await supabase.auth.admin.getUserById(userId)
-        if (error) throw error
-        if (!data.user?.email) {
+        if (!profile?.email) {
           await setLogStatus(log.id, 'skipped', 'User has no email address')
           summary.skipped += 1
           return
@@ -152,7 +150,7 @@ export async function notifyFavoriteShopPromotion(listing) {
 
         await mailTransporter().sendMail({
           from: process.env.EMAIL_FROM,
-          to: data.user.email,
+          to: profile.email,
           ...messageFor(listing),
         })
         await setLogStatus(log.id, 'sent')

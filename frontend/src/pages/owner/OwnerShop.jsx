@@ -118,8 +118,12 @@ export default function OwnerShop() {
     setSubmitting(true)
     setSubmitError(null)
     try {
-      await shopService.save(form)
-      notify({ tone: 'success', title: 'Shop profile saved' })
+      await shopService.save(data?.id, form)
+      notify({
+        tone: 'success',
+        title: data?.id ? 'Shop profile saved' : 'Shop created',
+        description: data?.id ? undefined : 'You can publish your first promotion now.',
+      })
       reload()
     } catch (requestError) {
       setSubmitError(requestError)
@@ -147,8 +151,8 @@ export default function OwnerShop() {
             promotion.
           </p>
         </div>
-        {data?.slug ? (
-          <Button as={Link} to={`/app/shops/${data.slug}`} variant="secondary" icon={Store}>
+        {data?.id ? (
+          <Button as={Link} to={`/app/shops/${data.id}`} variant="secondary" icon={Store}>
             View public page
           </Button>
         ) : null}
@@ -308,11 +312,11 @@ export default function OwnerShop() {
 
         <div className="flex flex-wrap items-center gap-3">
           <Button type="submit" size="lg" icon={Save} loading={submitting}>
-            Save profile
+            {data?.id ? 'Save profile' : 'Create shop'}
           </Button>
-          {data?.slug ? (
+          {data?.id ? (
             <Badge tone="neutral">
-              Public link: /app/shops/{data.slug}
+              Public link: /app/shops/{data.id}
             </Badge>
           ) : null}
         </div>

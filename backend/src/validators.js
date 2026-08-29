@@ -5,10 +5,29 @@ const uuid = z.string().uuid()
 const optionalText = z.string().trim().max(2000).optional().nullable()
 const url = z.string().trim().url().max(2000).optional().nullable()
 
-export const createProfileSchema = z.object({
+const email = z.string().trim().toLowerCase().email().max(160)
+const password = z.string().min(8).max(200)
+
+export const registerSchema = z.object({
+  email,
+  password,
   role,
-  fullName: z.string().trim().min(1).max(120).optional(),
-  city: z.string().trim().max(120).optional(),
+  fullName: z.string().trim().min(1).max(120).optional().nullable(),
+  city: z.string().trim().max(120).optional().nullable(),
+  shopName: z.string().trim().min(1).max(160).optional(),
+  latitude: z.number().min(-90).max(90).optional().nullable(),
+  longitude: z.number().min(-180).max(180).optional().nullable(),
+})
+
+export const loginSchema = z.object({
+  email,
+  password: z.string().min(1).max(200),
+})
+
+export const googleAuthSchema = z.object({
+  idToken: z.string().min(10),
+  role: role.optional(),
+  shopName: z.string().trim().min(1).max(160).optional(),
 })
 
 export const updateProfileSchema = z.object({

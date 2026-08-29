@@ -53,7 +53,7 @@ function getClient() {
 }
 
 function modelName() {
-  return process.env.GEMINI_MODEL || 'gemini-2.5-flash'
+  return process.env.GEMINI_MODEL || 'gemini-3.6-flash'
 }
 
 function parseJson(text) {

@@ -1,7 +1,6 @@
 /**
  * Every API call the frontend makes lives here, so swapping or renaming an
- * endpoint is a one-file change. The expected request/response shapes are
- * documented in API_CONTRACT.md.
+ * endpoint is a one-file change. The routes below match backend/src/routes/*.
  */
 
 import { api, buildQuery } from './api.js'
@@ -15,6 +14,47 @@ import {
   unwrapItem,
   unwrapList,
 } from './normalize.js'
+
+/** The API caps page size at 50. */
+const MAX_LIMIT = 50
+
+const SORT_MAP = {
+  ending_soon: 'ending_soon',
+  price_asc: 'lowest_price',
+  lowest_price: 'lowest_price',
+  newest: 'newest',
+}
+
+/**
+ * Translates the UI's filter state into the query the API expects.
+ *
+ * Coordinates are only sent when the visitor actually filters by distance:
+ * the nearby search skips shops that have no coordinates yet, and distance
+ * labels are calculated in the browser anyway.
+ */
+function promotionQuery(params = {}) {
+  const wantsRadius = params.radiusKm != null && params.radiusKm !== ''
+  const latitude = params.latitude ?? params.lat
+  const longitude = params.longitude ?? params.lng
+  const hasLocation = latitude != null && longitude != null
+
+  return {
+    q: params.q ?? params.query,
+    category: params.category,
+    city: params.city,
+    minPrice: params.minPrice,
+    maxPrice: params.maxPrice,
+    endingSoon: params.endingSoon ? 'true' : undefined,
+    shopId: params.shopId,
+    sort: SORT_MAP[params.sort ?? params.sortBy],
+    status: params.status ?? (params.availableOnly ? 'active' : undefined),
+    latitude: wantsRadius && hasLocation ? latitude : undefined,
+    longitude: wantsRadius && hasLocation ? longitude : undefined,
+    radiusKm: wantsRadius && hasLocation ? params.radiusKm : undefined,
+    limit: params.limit == null ? undefined : Math.min(Number(params.limit), MAX_LIMIT),
+    offset: params.offset,
+  }
+}
 
 export const healthService = {
   check: (signal) => api.get('/api/health', { signal, auth: false }),
@@ -37,6 +77,10 @@ export const authService = {
     const data = await api.get('/api/auth/me', { signal })
     return normalizeUser(data)
   },
+  async updateProfile(patch) {
+    const data = await api.patch('/api/auth/me', patch)
+    return normalizeUser(data)
+  },
   logout: () => api.post('/api/auth/logout').catch(() => null),
 }
 
@@ -49,7 +93,10 @@ export const categoryService = {
 
 export const promotionService = {
   async list(params = {}, signal) {
-    const data = await api.get(`/api/promotions${buildQuery(params)}`, { signal, auth: false })
+    const data = await api.get(`/api/promotions${buildQuery(promotionQuery(params))}`, {
+      signal,
+      auth: false,
+    })
     return unwrapList(data, 'promotions').map(normalizePromotion)
   },
   async get(id, signal) {
@@ -57,37 +104,44 @@ export const promotionService = {
     return normalizePromotion(unwrapItem(data, 'promotion'))
   },
   async listForOwner(params = {}, signal) {
-    const data = await api.get(`/api/owner/promotions${buildQuery(params)}`, { signal })
+    const data = await api.get(
+      `/api/owner/promotions${buildQuery({ shopId: params.shopId })}`,
+      { signal }
+    )
     return unwrapList(data, 'promotions').map(normalizePromotion)
   },
   async create(form) {
-    const data = await api.post('/api/promotions', serializePromotion(form))
+    const data = await api.post('/api/owner/promotions', serializePromotion(form))
     return normalizePromotion(unwrapItem(data, 'promotion'))
   },
   async update(id, form) {
-    const data = await api.patch(`/api/promotions/${id}`, serializePromotion(form))
+    const payload = serializePromotion(form)
+    delete payload.shopId
+    const data = await api.patch(`/api/owner/promotions/${id}`, payload)
     return normalizePromotion(unwrapItem(data, 'promotion'))
   },
-  remove: (id) => api.delete(`/api/promotions/${id}`),
+  remove: (id) => api.delete(`/api/owner/promotions/${id}`),
 }
 
 export const shopService = {
-  async list(params = {}, signal) {
-    const data = await api.get(`/api/shops${buildQuery(params)}`, { signal, auth: false })
-    return unwrapList(data, 'shops').map(normalizeShop)
-  },
-  async getBySlug(slug, signal) {
-    const data = await api.get(`/api/shops/${slug}`, { signal, auth: false })
-    const shop = normalizeShop(unwrapItem(data, 'shop'))
-    const promotions = unwrapList(data, 'promotions').map(normalizePromotion)
-    return { shop, promotions }
+  /** Public shop page: returns the shop plus its live promotions in one call. */
+  async get(id, signal) {
+    const data = await api.get(`/api/shops/${id}`, { signal, auth: false })
+    return {
+      shop: normalizeShop(unwrapItem(data, 'shop')),
+      promotions: unwrapList(data, 'promotions').map(normalizePromotion),
+    }
   },
   async mine(signal) {
-    const data = await api.get('/api/owner/shop', { signal })
-    return normalizeShop(unwrapItem(data, 'shop'))
+    const data = await api.get('/api/owner/shops', { signal })
+    const [first] = unwrapList(data, 'shops')
+    return first ? normalizeShop(first) : null
   },
-  async save(form) {
-    const data = await api.put('/api/owner/shop', serializeShop(form))
+  async save(id, form) {
+    const payload = serializeShop(form)
+    const data = id
+      ? await api.patch(`/api/owner/shops/${id}`, payload)
+      : await api.post('/api/owner/shops', payload)
     return normalizeShop(unwrapItem(data, 'shop'))
   },
 }
@@ -95,10 +149,9 @@ export const shopService = {
 export const favoriteService = {
   async list(signal) {
     const data = await api.get('/api/favorites', { signal })
-    const shops = unwrapList(data, 'shops', 'favorites')
-    return shops.map((entry) =>
-      typeof entry === 'string' ? { id: entry } : normalizeShop(entry.shop ?? entry)
-    )
+    return unwrapList(data, 'favorites')
+      .map((entry) => normalizeShop(entry?.shop ?? entry))
+      .filter(Boolean)
   },
   add: (shopId) => api.post(`/api/favorites/${shopId}`),
   remove: (shopId) => api.delete(`/api/favorites/${shopId}`),
@@ -106,27 +159,28 @@ export const favoriteService = {
 
 export const reservationService = {
   async mine(signal) {
-    const data = await api.get('/api/reservations', { signal })
+    const data = await api.get('/api/reservations/me', { signal })
     return unwrapList(data, 'reservations').map(normalizeReservation)
   },
-  async create({ promotionId, quantity, note }) {
-    const data = await api.post('/api/reservations', {
-      promotion_id: promotionId,
-      quantity,
-      note: note || null,
-    })
+  async create({ promotionId, quantity }) {
+    const data = await api.post('/api/reservations', { promotionId, quantity: Number(quantity) })
     return normalizeReservation(unwrapItem(data, 'reservation'))
   },
-  async updateStatus(id, status) {
-    const data = await api.patch(`/api/reservations/${id}`, { status })
+  async cancel(id) {
+    const data = await api.post(`/api/reservations/${id}/cancel`)
     return normalizeReservation(unwrapItem(data, 'reservation'))
-  },
-  cancel(id) {
-    return this.updateStatus(id, 'cancelled')
   },
   async forOwner(params = {}, signal) {
-    const data = await api.get(`/api/owner/reservations${buildQuery(params)}`, { signal })
+    const data = await api.get(
+      `/api/owner/reservations${buildQuery({ status: params.status })}`,
+      { signal }
+    )
     return unwrapList(data, 'reservations').map(normalizeReservation)
+  },
+  /** Owner-side transitions: picked_up, cancelled or expired. */
+  async updateStatus(id, status) {
+    const data = await api.patch(`/api/owner/reservations/${id}`, { status })
+    return normalizeReservation(unwrapItem(data, 'reservation'))
   },
 }
 
@@ -136,20 +190,27 @@ export const chatService = {
    * returns a message plus the real matching promotions. The frontend never
    * talks to Gemini directly.
    */
-  async send({ message, history = [], userLocation = null }, signal) {
+  async send({ message, history = [], location = null, radiusKm, city }, signal) {
     const data = await api.post(
       '/api/chat',
       {
         message,
-        history: history.slice(-8).map(({ role, content }) => ({ role, content })),
-        userLocation,
+        history: history
+          .filter((entry) => entry.content?.trim())
+          .slice(-8)
+          .map(({ role, content }) => ({ role, content: content.slice(0, 2000) })),
+        ...(location
+          ? { latitude: location.latitude, longitude: location.longitude }
+          : {}),
+        ...(location && radiusKm ? { radiusKm } : {}),
+        ...(city ? { city } : {}),
       },
       { signal }
     )
     return {
-      message: data?.message ?? data?.reply ?? '',
-      criteria: data?.criteria ?? data?.filters ?? null,
-      promotions: unwrapList(data, 'promotions', 'products').map(normalizePromotion),
+      message: data?.reply ?? data?.message ?? '',
+      criteria: data?.criteria ?? null,
+      promotions: unwrapList(data, 'promotions').map(normalizePromotion),
     }
   },
 }
@@ -157,10 +218,6 @@ export const chatService = {
 export const statsService = {
   async impact(signal) {
     const data = await api.get('/api/stats/impact', { signal, auth: false })
-    return unwrapItem(data, 'stats')
-  },
-  async owner(signal) {
-    const data = await api.get('/api/owner/stats', { signal })
     return unwrapItem(data, 'stats')
   },
 }

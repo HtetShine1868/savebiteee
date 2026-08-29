@@ -10,14 +10,29 @@ import reservationsRouter from './routes/reservations.js'
 import ownerRouter from './routes/owner.js'
 import chatRouter from './routes/chat.js'
 import favoritesRouter from './routes/favorites.js'
+import statsRouter from './routes/stats.js'
 
 const app = express()
 const port = Number(process.env.PORT) || 5000
-const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173'
+
+// CLIENT_URL accepts a comma-separated list so the deployed site and local dev
+// can talk to the same API.
+const allowedOrigins = new Set(
+  (process.env.CLIENT_URL || 'http://localhost:5173,http://localhost:4173')
+    .split(',')
+    .map((value) => value.trim().replace(/\/$/, ''))
+    .filter(Boolean)
+)
 
 app.use(
   cors({
-    origin: clientUrl,
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.has(origin.replace(/\/$/, ''))) {
+        return callback(null, true)
+      }
+
+      callback(new Error(`Origin ${origin} is not allowed by CORS`))
+    },
     credentials: true,
   })
 )
@@ -32,6 +47,7 @@ app.use('/api/reservations', reservationsRouter)
 app.use('/api/owner', ownerRouter)
 app.use('/api/chat', chatRouter)
 app.use('/api/favorites', favoritesRouter)
+app.use('/api/stats', statsRouter)
 
 app.use((req, res) => {
   res.status(404).json({

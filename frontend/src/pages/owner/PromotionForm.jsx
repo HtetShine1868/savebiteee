@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, ImageIcon, Percent, Save, Sparkles } from 'lucide-react'
+import { ArrowLeft, ImageIcon, Percent, Save, Sparkles, Store } from 'lucide-react'
 import { Button } from '../../components/ui/Button.jsx'
 import { Badge } from '../../components/ui/Badge.jsx'
 import { Card } from '../../components/ui/Surface.jsx'
@@ -9,7 +9,7 @@ import { ErrorState, Skeleton } from '../../components/ui/Feedback.jsx'
 import { PromoCard } from '../../components/promo/PromoCard.jsx'
 import { useToast } from '../../context/toast-context.js'
 import { useResource } from '../../hooks/useResource.js'
-import { promotionService, shopService } from '../../lib/services.js'
+import { categoryService, promotionService, shopService } from '../../lib/services.js'
 import { CATEGORIES, CATEGORY_BY_SLUG, computeStatus } from '../../lib/promotions.js'
 import { discountPercent, formatPrice, toLocalInputValue } from '../../lib/format.js'
 
@@ -78,11 +78,17 @@ export default function PromotionForm() {
   const [submitError, setSubmitError] = useState(null)
 
   const shopResource = useResource((signal) => shopService.mine(signal), [])
+  const categoryResource = useResource((signal) => categoryService.list(signal), [], {
+    initialData: [],
+  })
   const promotionResource = useResource(
     (signal) => promotionService.get(id, signal),
     [id],
     { enabled: isEdit }
   )
+
+  const shop = shopResource.data
+  const needsShop = !shopResource.loading && !shop
 
   useEffect(() => {
     if (isEdit) return
@@ -114,12 +120,12 @@ export default function PromotionForm() {
   }, [promotionResource.data])
 
   useEffect(() => {
-    if (!isEdit && shopResource.data?.address) {
+    if (!isEdit && shop?.address) {
       setForm((current) =>
-        current.pickupLocation ? current : { ...current, pickupLocation: shopResource.data.address }
+        current.pickupLocation ? current : { ...current, pickupLocation: shop.address }
       )
     }
-  }, [isEdit, shopResource.data])
+  }, [isEdit, shop])
 
   const update = (field) => (event) => {
     const value = event?.target ? event.target.value : event
@@ -161,31 +167,37 @@ export default function PromotionForm() {
       foodExpiresAt: form.foodExpiresAt ? new Date(form.foodExpiresAt).toISOString() : null,
       pickupLocation: form.pickupLocation,
       category: CATEGORY_BY_SLUG[form.categorySlug] ?? CATEGORY_BY_SLUG.other,
-      shopId: shopResource.data?.id ?? 'preview-shop',
-      shop: shopResource.data
+      shopId: shop?.id ?? 'preview-shop',
+      shop: shop
         ? {
-            id: shopResource.data.id,
-            name: shopResource.data.name,
-            slug: shopResource.data.slug,
-            city: shopResource.data.city,
-            address: shopResource.data.address,
+            id: shop.id,
+            name: shop.name,
+            slug: shop.slug,
+            city: shop.city,
+            address: shop.address,
           }
         : { name: 'Your shop', slug: '', city: '' },
     }
     return { ...draft, status: computeStatus(draft) }
-  }, [form, shopResource.data])
+  }, [form, shop])
 
   const onSubmit = async (event) => {
     event.preventDefault()
     const nextErrors = validate(form)
     setErrors(nextErrors)
-    if (Object.keys(nextErrors).length) return
+    if (Object.keys(nextErrors).length || needsShop) return
+
+    // The API stores category and shop by id.
+    const categoryId =
+      (categoryResource.data ?? []).find((category) => category.slug === form.categorySlug)?.id ??
+      null
+    const payload = { ...form, shopId: shop?.id, categoryId }
 
     setSubmitting(true)
     setSubmitError(null)
     try {
-      if (isEdit) await promotionService.update(id, form)
-      else await promotionService.create(form)
+      if (isEdit) await promotionService.update(id, payload)
+      else await promotionService.create(payload)
       notify({
         tone: 'success',
         title: isEdit ? 'Promotion updated' : 'Promotion published',
@@ -206,6 +218,30 @@ export default function PromotionForm() {
       <div className="mx-auto max-w-6xl space-y-4 px-4 py-8 sm:px-6 lg:px-10">
         <Skeleton className="h-8 w-56" />
         <Skeleton className="h-96 rounded-4xl" />
+      </div>
+    )
+  }
+
+  if (needsShop) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-16 sm:px-6">
+        <Card className="space-y-4 text-center">
+          <span className="mx-auto grid size-14 place-items-center rounded-3xl bg-brand-50 text-brand-600">
+            <Store className="size-7" aria-hidden="true" />
+          </span>
+          <h1 className="font-display text-2xl font-extrabold tracking-tight text-ink">
+            Set up your shop first
+          </h1>
+          <p className="text-sm text-muted">
+            Every promotion belongs to a shop so customers know where to collect the food. It takes a
+            minute.
+          </p>
+          <div>
+            <Button as={Link} to="/owner/shop" size="lg" icon={Store}>
+              Create shop profile
+            </Button>
+          </div>
+        </Card>
       </div>
     )
   }

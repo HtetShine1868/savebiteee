@@ -55,7 +55,7 @@ export default function App() {
           <Route path="browse" element={<Browse />} />
           <Route path="chat" element={<ChatPage />} />
           <Route path="promotions/:id" element={<PromotionDetail />} />
-          <Route path="shops/:slug" element={<ShopProfile />} />
+          <Route path="shops/:id" element={<ShopProfile />} />
           <Route
             path="favorites"
             element={
