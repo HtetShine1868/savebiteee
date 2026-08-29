@@ -79,10 +79,18 @@ create table if not exists public.reservations (
   customer_id uuid not null references public.profiles (id) on delete cascade,
   quantity integer not null check (quantity > 0),
   status text not null check (status in ('reserved', 'picked_up', 'cancelled', 'expired')),
+  pickup_code text,
   pickup_by timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Short code the customer shows at the counter.
+alter table public.reservations
+  add column if not exists pickup_code text;
+
+create unique index if not exists reservations_pickup_code_key
+  on public.reservations (pickup_code);
 
 -- ---------------------------------------------------------------------------
 -- updated_at
@@ -195,6 +203,7 @@ as $$
 declare
   v_promo public.promotions;
   v_reservation public.reservations;
+  v_code text;
 begin
   if p_quantity is null or p_quantity < 1 then
     raise exception 'INVALID_QUANTITY';
@@ -226,11 +235,19 @@ begin
   set quantity_available = quantity_available - p_quantity
   where id = p_promotion_id;
 
+  loop
+    v_code := 'FWS-' || upper(substr(encode(gen_random_bytes(8), 'hex'), 1, 5));
+    exit when not exists (
+      select 1 from public.reservations where pickup_code = v_code
+    );
+  end loop;
+
   insert into public.reservations (
     promotion_id,
     customer_id,
     quantity,
     status,
+    pickup_code,
     pickup_by
   )
   values (
@@ -238,6 +255,7 @@ begin
     p_customer_id,
     p_quantity,
     'reserved',
+    v_code,
     v_promo.ends_at
   )
   returning * into v_reservation;

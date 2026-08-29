@@ -118,6 +118,7 @@ export function serializeReservation(row) {
     customerId: row.customer_id,
     quantity: row.quantity,
     status: row.status,
+    pickupCode: row.pickup_code ?? null,
     pickupBy: row.pickup_by,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
