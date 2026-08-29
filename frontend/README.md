@@ -23,17 +23,18 @@ npm run lint         # oxlint
 
 ## How it talks to the backend
 
-There is no mock data. Every screen reads from the API, and all requests live in one file:
+There is no mock data. Every screen reads from the Express API, and all requests live in one
+file:
 
 - `src/lib/api.js` — fetch wrapper, bearer token, `ApiError` (`isOffline`, `isMissing`, `isAuth`)
 - `src/lib/services.js` — one function per endpoint; the only place URLs appear
-- `src/lib/normalize.js` — accepts `snake_case` (rows from the `promotion_listings` view) or
-  `camelCase` and returns one consistent shape to components
+- `src/lib/normalize.js` — maps API responses to one consistent shape for components, and
+  builds the camelCase write bodies the API validates
 
-Endpoints that are not built yet answer `404`, which the UI renders as a calm "this endpoint
-is not live yet" state instead of a crash — so the frontend can be demoed while the API is
-still being written. The full list of expected requests and responses is in
-[`../API_CONTRACT.md`](../API_CONTRACT.md).
+Authentication is owned by the API: `POST /api/auth/register` and `/login` return a JWT that
+`AuthProvider` stores under `fws.token` and sends as a bearer token. Supabase is the database
+behind the API only — the browser never talks to it, and there is no Supabase client here.
+Every request and response shape is documented in [`../API_CONTRACT.md`](../API_CONTRACT.md).
 
 ## Structure
 
@@ -64,7 +65,7 @@ Each context is split into a `*-context.js` (the context and its hook) and a
 | `/app/browse` | public | Search with category, price, distance and ending-soon filters (URL-synced) |
 | `/app/chat` | public | Full-page AI assistant |
 | `/app/promotions/:id` | public | Listing detail with countdown, pickup info and reserve |
-| `/app/shops/:slug` | public | Shop profile with live listings |
+| `/app/shops/:id` | public | Shop profile with live listings |
 | `/app/favorites` | customer | Saved shops and their live deals |
 | `/app/reservations` | customer | Pickup codes, cancel, rescued/saved totals |
 | `/owner` | owner | Overview: live listings, ending soon, latest reservations |
