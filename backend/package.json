@@ -9,6 +9,7 @@
     "start": "node src/index.js",
     "db:migrate": "node src/scripts/migrate.js",
     "db:status": "node src/scripts/db-status.js",
+    "db:seed": "node src/scripts/seed.js",
     "test": "node --test"
   },
   "keywords": [],
