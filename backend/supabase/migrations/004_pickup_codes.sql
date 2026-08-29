@@ -57,8 +57,9 @@ begin
   set quantity_available = quantity_available - p_quantity
   where id = p_promotion_id;
 
+  -- md5/random are built in, so this works regardless of where pgcrypto lives.
   loop
-    v_code := 'FWS-' || upper(substr(encode(gen_random_bytes(8), 'hex'), 1, 5));
+    v_code := 'FWS-' || upper(substr(md5(random()::text || clock_timestamp()::text), 1, 5));
     exit when not exists (
       select 1 from public.reservations where pickup_code = v_code
     );
