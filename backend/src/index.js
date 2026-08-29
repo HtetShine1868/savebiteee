@@ -24,14 +24,28 @@ const allowedOrigins = new Set(
     .filter(Boolean)
 )
 
+// Netlify deploy previews and renamed sites get a new subdomain every time, so
+// they are trusted by pattern instead of needing a redeploy of this API.
+// Sessions are bearer tokens, not cookies, so no ambient credentials are shared.
+const ALLOWED_HOST_PATTERNS = [/\.netlify\.app$/, /^localhost(:\d+)?$/, /^127\.0\.0\.1(:\d+)?$/]
+
+function isAllowedOrigin(origin) {
+  if (allowedOrigins.has(origin.replace(/\/$/, ''))) return true
+
+  try {
+    const { host } = new URL(origin)
+    return ALLOWED_HOST_PATTERNS.some((pattern) => pattern.test(host))
+  } catch {
+    return false
+  }
+}
+
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || allowedOrigins.has(origin.replace(/\/$/, ''))) {
-        return callback(null, true)
-      }
-
-      callback(new Error(`Origin ${origin} is not allowed by CORS`))
+      // A rejected origin is answered without the CORS headers rather than as a
+      // server error, which keeps the browser message readable.
+      callback(null, !origin || isAllowedOrigin(origin))
     },
     credentials: true,
   })
