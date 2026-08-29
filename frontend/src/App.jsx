@@ -1,79 +1,100 @@
-import { useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect } from 'react'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { AppLayout } from './components/layout/AppLayout.jsx'
+import { RequireAuth } from './components/auth/RequireAuth.jsx'
+import { Spinner } from './components/ui/Feedback.jsx'
+import Landing from './pages/Landing.jsx'
+import Login from './pages/Login.jsx'
+import Register from './pages/Register.jsx'
+import NotFound from './pages/NotFound.jsx'
+import Dashboard from './pages/customer/Dashboard.jsx'
+import Browse from './pages/customer/Browse.jsx'
+import ChatPage from './pages/customer/ChatPage.jsx'
+import PromotionDetail from './pages/customer/PromotionDetail.jsx'
+import ShopProfile from './pages/customer/ShopProfile.jsx'
+import Favorites from './pages/customer/Favorites.jsx'
+import Reservations from './pages/customer/Reservations.jsx'
 
-function StatusBadge({ ok, label, detail }) {
-  return (
-    <div className="rounded-xl border border-stone-200 bg-white p-5 text-left shadow-sm">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-medium text-stone-500">{label}</p>
-        <span
-          className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-            ok
-              ? 'bg-emerald-50 text-emerald-700'
-              : 'bg-amber-50 text-amber-700'
-          }`}
-        >
-          {ok ? 'Connected' : 'Waiting'}
-        </span>
-      </div>
-      <p className="mt-2 text-sm text-stone-700">{detail}</p>
-    </div>
-  )
-}
+// The owner console is a separate audience — keep it out of the customer bundle.
+const OwnerLayout = lazy(() =>
+  import('./components/layout/OwnerLayout.jsx').then((module) => ({ default: module.OwnerLayout }))
+)
+const OwnerDashboard = lazy(() => import('./pages/owner/OwnerDashboard.jsx'))
+const OwnerPromotions = lazy(() => import('./pages/owner/OwnerPromotions.jsx'))
+const PromotionForm = lazy(() => import('./pages/owner/PromotionForm.jsx'))
+const OwnerReservations = lazy(() => import('./pages/owner/OwnerReservations.jsx'))
+const OwnerShop = lazy(() => import('./pages/owner/OwnerShop.jsx'))
 
-function App() {
-  const [api, setApi] = useState({ loading: true, ok: false, detail: 'Checking…' })
-
+function ScrollToTop() {
+  const { pathname } = useLocation()
   useEffect(() => {
-    fetch('/api/health')
-      .then(async (res) => {
-        const data = await res.json()
-        if (!res.ok) {
-          throw new Error(data.error || 'API request failed')
-        }
-        setApi({
-          loading: false,
-          ok: true,
-          detail: `${data.service} is running`,
-        })
-      })
-      .catch(() => {
-        setApi({
-          loading: false,
-          ok: false,
-          detail: 'Start the backend with npm run dev in /backend',
-        })
-      })
-  }, [])
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }, [pathname])
+  return null
+}
 
+function RouteFallback() {
   return (
-    <div className="min-h-svh bg-stone-50 text-stone-900">
-      <main className="mx-auto flex min-h-svh max-w-3xl flex-col justify-center px-6 py-16">
-        <p className="text-sm font-semibold tracking-wide text-emerald-700 uppercase">
-          Food Waste
-        </p>
-        <h1 className="mt-3 text-4xl font-semibold tracking-tight">
-          React + Tailwind is ready
-        </h1>
-        <p className="mt-3 max-w-xl text-stone-600">
-          Frontend is Vite, React, and Tailwind CSS. The API is Express and
-          talks to Supabase once you add keys in <code className="rounded bg-stone-200 px-1.5 py-0.5 text-sm">backend/.env</code>.
-        </p>
-
-        <div className="mt-8 grid gap-4 sm:grid-cols-2">
-          <StatusBadge
-            ok={api.ok}
-            label="Express API"
-            detail={api.loading ? 'Checking…' : api.detail}
-          />
-          <StatusBadge
-            ok={false}
-            label="Supabase"
-            detail="Copy backend/.env.example to backend/.env and add your project URL and keys."
-          />
-        </div>
-      </main>
+    <div className="grid min-h-svh place-items-center">
+      <Spinner className="size-7" />
     </div>
   )
 }
 
-export default App
+export default function App() {
+  return (
+    <>
+      <ScrollToTop />
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+
+        <Route path="/app" element={<AppLayout />}>
+          <Route index element={<Dashboard />} />
+          <Route path="browse" element={<Browse />} />
+          <Route path="chat" element={<ChatPage />} />
+          <Route path="promotions/:id" element={<PromotionDetail />} />
+          <Route path="shops/:slug" element={<ShopProfile />} />
+          <Route
+            path="favorites"
+            element={
+              <RequireAuth>
+                <Favorites />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="reservations"
+            element={
+              <RequireAuth>
+                <Reservations />
+              </RequireAuth>
+            }
+          />
+        </Route>
+
+        <Route
+          path="/owner"
+          element={
+            <RequireAuth role="owner">
+              <Suspense fallback={<RouteFallback />}>
+                <OwnerLayout />
+              </Suspense>
+            </RequireAuth>
+          }
+        >
+          <Route index element={<OwnerDashboard />} />
+          <Route path="promotions" element={<OwnerPromotions />} />
+          <Route path="promotions/new" element={<PromotionForm />} />
+          <Route path="promotions/:id/edit" element={<PromotionForm />} />
+          <Route path="reservations" element={<OwnerReservations />} />
+          <Route path="shop" element={<OwnerShop />} />
+        </Route>
+
+        <Route path="/dashboard" element={<Navigate to="/app" replace />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </>
+  )
+}
