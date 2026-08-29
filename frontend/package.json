@@ -7,11 +7,15 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
+    "smoke": "vite build --config vite.smoke.config.js && node dist-smoke/smoke-entry.js",
     "preview": "vite preview"
   },
   "dependencies": {
+    "framer-motion": "^13.1.1",
+    "lucide-react": "^1.35.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.3"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.12",
